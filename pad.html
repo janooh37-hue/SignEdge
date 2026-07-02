@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"><link rel="stylesheet" href="src/ui.css"></head>
+  <body>
+    <div class="pad-wrap">
+      <h1>New signature</h1>
+      <p class="pad-hint">Draw your signature below. Use a pen, finger, or mouse.</p>
+      <canvas id="pad" class="pad-canvas" width="1200" height="480"></canvas>
+      <div class="pad-row">
+        <input id="name" type="text" placeholder="Name (e.g. Full signature)" />
+        <button id="clear">Clear</button>
+        <button id="save" class="primary">Save</button>
+      </div>
+      <p id="err" class="pad-hint" style="color:#c00"></p>
+    </div>
+    <script src="lib/signature_pad.umd.min.js"></script>
+    <script type="module" src="src/pad.js"></script>
+  </body>
+</html>

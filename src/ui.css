@@ -4,3 +4,8 @@ body { margin: 0; }
 h1 { font-size: 15px; margin: 0 0 8px; }
 button { font: inherit; padding: 8px 12px; border: 1px solid #999; border-radius: 6px; background: #f7f7f7; cursor: pointer; }
 button.primary { background: #0a6cff; color: #fff; border-color: #0a6cff; }
+.pad-wrap { padding: 16px; max-width: 620px; }
+.pad-canvas { border: 1px dashed #888; border-radius: 8px; touch-action: none; width: 600px; height: 240px; background: transparent; }
+.pad-row { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.pad-row input[type=text] { font: inherit; padding: 8px; border: 1px solid #999; border-radius: 6px; flex: 1; }
+.pad-hint { color: #666; font-size: 13px; }
