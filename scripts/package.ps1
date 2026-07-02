@@ -7,4 +7,10 @@ $zip = "dist/signedge-$version.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
 $items = @("manifest.json", "popup.html", "pad.html", "viewer.html", "src", "lib", "icons")
 Compress-Archive -Path $items -DestinationPath $zip
+# Remove non-runtime icon files (generator/docs) — keep only the four PNGs
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [System.IO.Compression.ZipFile]::Open((Resolve-Path $zip), 'Update')
+$toDelete = @($archive.Entries | Where-Object { $_.FullName -like 'icons/*' -and $_.FullName -notmatch '\.png$' })
+foreach ($e in $toDelete) { $e.Delete() }
+$archive.Dispose()
 Write-Output "Built $zip"

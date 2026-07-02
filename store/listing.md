@@ -3,7 +3,7 @@
 **Name:** SignEdge — Save & Reuse Signatures
 
 **Summary (max ~132 chars):**
-Draw a signature once, save it, and stamp it onto any PDF. 100% on your device — nothing is uploaded.
+Draw a signature once, save it, and stamp it onto a PDF. 100% on your device — nothing is uploaded.
 
 **Category:** Productivity
 
@@ -12,10 +12,12 @@ SignEdge lets you save your handwritten signatures and reuse them on PDF documen
 
 Features
 - Draw and save multiple signatures (full signature, initials, etc.).
-- Open any PDF right in your browser and drop a saved signature onto any page.
+- Open a PDF right in your browser and drop a saved signature onto any page.
 - Move and resize the signature, then download the signed PDF.
 - Your original PDF text stays intact and selectable.
 - Everything stays on your device. No accounts, no cloud, no uploads.
+
+Note: PDFs that rely on uncommon fonts or compression may not display fully.
 
 How it works
 1. Click the SignEdge icon and choose "New signature" to draw and save one.

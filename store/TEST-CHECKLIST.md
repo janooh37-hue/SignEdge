@@ -18,6 +18,10 @@ Run before every store submission.
 - [ ] Download signed PDF → signatures at correct spots/sizes; original text selectable.
 - [ ] Rotated-page PDF → signature is upright and correctly placed.
 
+## Known limitations
+- [ ] CJK-font PDF (e.g. Chinese/Japanese text) → graceful behavior: clear error message or partial render, no crash.
+- [ ] Image-heavy PDF with JPEG2000/JBIG2 compression → graceful behavior: clear error message or partial render, no crash.
+
 ## Errors
 - [ ] Non-PDF file → graceful error, no crash.
 - [ ] Password-protected PDF → clear "not supported" message.

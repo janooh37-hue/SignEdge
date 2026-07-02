@@ -70,9 +70,6 @@ document.getElementById('file').addEventListener('change', (ev) => {
   if (file) openPdf(file);
 });
 
-// placement + export wired up in Tasks 7 and 9
-
-state.sigById = new Map();
 const sigListEl = document.getElementById('sigList');
 
 async function renderSidebar() {
