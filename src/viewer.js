@@ -1,5 +1,5 @@
 import * as pdfjsLib from '../lib/pdf.min.mjs';
-import { listSignatures } from './storage.js';
+import { listSignatures, deleteSignature } from './storage.js';
 import { fractionsToViewportRect, pdfRectFromCorners, preRotateDegreesCW } from './coords.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -71,8 +71,11 @@ document.getElementById('file').addEventListener('change', (ev) => {
 });
 
 const sigListEl = document.getElementById('sigList');
+const sidebarTimers = new Set(); // pending two-step-delete timers, cleared on re-render
 
 async function renderSidebar() {
+  for (const t of sidebarTimers) clearTimeout(t);
+  sidebarTimers.clear();
   const sigs = await listSignatures();
   state.sigById = new Map(sigs.map((s) => [s.id, s]));
   sigListEl.innerHTML = '';
@@ -87,9 +90,35 @@ async function renderSidebar() {
     const img = document.createElement('img');
     img.src = sig.dataUrl; img.alt = sig.name;
     const label = document.createElement('span');
+    label.className = 'sig-label';
     label.textContent = sig.name;
     item.append(img, label);
     item.addEventListener('click', () => selectSig(sig.id));
+
+    // two-step delete (native confirm() is unreliable in extension pages)
+    const del = document.createElement('button');
+    del.className = 'sig-del';
+    del.type = 'button';
+    del.title = 'Delete this signature';
+    del.textContent = '×';
+    let armed = false, timer;
+    del.addEventListener('click', async (e) => {
+      e.stopPropagation(); // clicking delete must not select the signature
+      if (!armed) {
+        armed = true; del.textContent = '?'; del.classList.add('armed');
+        timer = setTimeout(() => {
+          armed = false; del.textContent = '×'; del.classList.remove('armed');
+          sidebarTimers.delete(timer);
+        }, 2500);
+        sidebarTimers.add(timer);
+        return;
+      }
+      clearTimeout(timer); sidebarTimers.delete(timer);
+      await deleteSignature(sig.id);
+      if (state.selectedSigId === sig.id) state.selectedSigId = null;
+      renderSidebar();
+    });
+    item.append(del);
     sigListEl.appendChild(item);
   }
 }
