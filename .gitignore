@@ -7,3 +7,4 @@ dist/
 verify/fixtures.js
 verify/icons.json
 verify/*.png
+verify/screenshot-fixture.json

@@ -1,6 +1,6 @@
 {
   "name": "signedge",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Edge extension to save signatures and stamp them onto PDFs (all local).",
   "type": "module",
   "scripts": {
