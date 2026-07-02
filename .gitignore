@@ -2,3 +2,8 @@ node_modules/
 *.log
 .DS_Store
 dist/
+
+# runtime-verification generated artifacts
+verify/fixtures.js
+verify/icons.json
+verify/*.png

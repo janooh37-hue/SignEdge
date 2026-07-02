@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>SignEdge runtime verify</title></head>
+  <body>
+    <h1>SignEdge runtime verification</h1>
+    <pre id="log">running…</pre>
+    <div id="shots"></div>
+    <!-- pdf-lib UMD global (window.PDFLib), exactly as viewer.html loads it -->
+    <script src="../lib/pdf-lib.min.js"></script>
+    <script type="module">
+      import * as pdfjsLib from '../lib/pdf.min.mjs';
+      import { fractionsToViewportRect, pdfRectFromCorners, preRotateDegreesCW } from '../src/coords.js';
+      import { NORMAL_B64, ROT90_B64, ROT270_B64 } from './fixtures.js';
+
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        new URL('../lib/pdf.worker.min.mjs', import.meta.url).toString();
+
+      // --- verbatim copies of the helpers under test from src/viewer.js ---
+      function rotateDataUrl(dataUrl, deg) {
+        return new Promise((resolve, reject) => {
+          if (deg % 360 === 0) { resolve(dataUrl); return; }
+          const img = new Image();
+          img.onload = () => {
+            const c = document.createElement('canvas');
+            const swap = deg % 180 !== 0;
+            c.width = swap ? img.naturalHeight : img.naturalWidth;
+            c.height = swap ? img.naturalWidth : img.naturalHeight;
+            const ctx = c.getContext('2d');
+            ctx.translate(c.width / 2, c.height / 2);
+            ctx.rotate((deg * Math.PI) / 180);
+            ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+            resolve(c.toDataURL('image/png'));
+          };
+          img.onerror = () => reject(new Error('rotate failed'));
+          img.src = dataUrl;
+        });
+      }
+      function dataUrlToBytes(dataUrl) {
+        const bin = atob(dataUrl.split(',')[1]);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return bytes;
+      }
+      // --- harness utilities ---
+      function b64ToBytes(b64) {
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return bytes;
+      }
+      // asymmetric opaque marker: TOP half red, BOTTOM half blue
+      function markerDataUrl() {
+        const c = document.createElement('canvas'); c.width = 120; c.height = 80;
+        const x = c.getContext('2d');
+        x.fillStyle = 'rgb(255,0,0)'; x.fillRect(0, 0, 120, 40);
+        x.fillStyle = 'rgb(0,0,255)'; x.fillRect(0, 40, 120, 40);
+        return c.toDataURL('image/png');
+      }
+      async function renderToCanvas(doc, pageNum, scale) {
+        const page = await doc.getPage(pageNum);
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+        const ctx = canvas.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        return { canvas, ctx, viewport };
+      }
+      function classify(r, g, b) {
+        if (r > 200 && g < 80 && b < 80) return 'red';
+        if (b > 200 && r < 80 && g < 80) return 'blue';
+        return `other(${r},${g},${b})`;
+      }
+      // find the marker in the output, report its bbox center (as page fractions)
+      // and whether it is upright (top of bbox red, bottom blue)
+      function analyzeStamp(ctx, W, H) {
+        const data = ctx.getImageData(0, 0, W, H).data;
+        let minX = W, minY = H, maxX = -1, maxY = -1;
+        const marker = (r, g, b) => (r > 200 && g < 80 && b < 80) || (b > 200 && r < 80 && g < 80);
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          const i = (y * W + x) * 4;
+          if (marker(data[i], data[i + 1], data[i + 2])) {
+            if (x < minX) minX = x; if (y < minY) minY = y;
+            if (x > maxX) maxX = x; if (y > maxY) maxY = y;
+          }
+        }
+        if (maxX < 0) return { found: false };
+        const cx = Math.floor((minX + maxX) / 2);
+        const topY = minY + Math.floor((maxY - minY) * 0.2);
+        const botY = maxY - Math.floor((maxY - minY) * 0.2);
+        const at = (px, py) => { const i = (py * W + px) * 4; return classify(data[i], data[i + 1], data[i + 2]); };
+        return {
+          found: true,
+          bboxCenterFrac: { x: +(((minX + maxX) / 2) / W).toFixed(3), y: +(((minY + maxY) / 2) / H).toFixed(3) },
+          widthFrac: +((maxX - minX) / W).toFixed(3), heightFrac: +((maxY - minY) / H).toFixed(3),
+          topColor: at(cx, topY), bottomColor: at(cx, botY),
+          upright: at(cx, topY) === 'red' && at(cx, botY) === 'blue',
+        };
+      }
+
+      async function runOne(name, b64) {
+        const scale = 1.0;
+        const marker = markerDataUrl();
+        const inDoc = await pdfjsLib.getDocument({ data: b64ToBytes(b64), isEvalSupported: false }).promise;
+        const { viewport } = await renderToCanvas(inDoc, 1, scale);
+
+        // placement in TOP-LEFT of the displayed page (fractions of displayed page)
+        const p = { xFrac: 0.10, yFrac: 0.10, wFrac: 0.30, hFrac: 0.12 };
+        const r = fractionsToViewportRect(p, viewport.width, viewport.height);
+        const topLeftPdf = viewport.convertToPdfPoint(r.x, r.y);
+        const bottomRightPdf = viewport.convertToPdfPoint(r.x + r.w, r.y + r.h);
+        const rect = pdfRectFromCorners(topLeftPdf, bottomRightPdf);
+
+        const pdfDoc = await window.PDFLib.PDFDocument.load(b64ToBytes(b64));
+        const page = pdfDoc.getPage(0);
+        const rotation = page.getRotation().angle;
+        const rotated = await rotateDataUrl(marker, preRotateDegreesCW(rotation));
+        const png = await pdfDoc.embedPng(dataUrlToBytes(rotated));
+        page.drawImage(png, { x: rect.x, y: rect.y, width: rect.width, height: rect.height });
+        const outBytes = await pdfDoc.save();
+
+        const outDoc = await pdfjsLib.getDocument({ data: outBytes.slice(0), isEvalSupported: false }).promise;
+        const { ctx, canvas } = await renderToCanvas(outDoc, 1, scale);
+        const analysis = analyzeStamp(ctx, canvas.width, canvas.height);
+        // attach a small preview
+        const img = document.createElement('img');
+        img.src = canvas.toDataURL('image/png'); img.style.width = '200px'; img.title = name;
+        document.getElementById('shots').appendChild(img);
+        return { name, rotation, preRotate: preRotateDegreesCW(rotation),
+                 rect: { x: +rect.x.toFixed(1), y: +rect.y.toFixed(1), w: +rect.width.toFixed(1), h: +rect.height.toFixed(1) },
+                 analysis };
+      }
+
+      (async () => {
+        const results = [];
+        for (const [n, b] of [['normal', NORMAL_B64], ['rot90', ROT90_B64], ['rot270', ROT270_B64]]) {
+          try { results.push(await runOne(n, b)); }
+          catch (e) { results.push({ name: n, error: String((e && e.stack) || e) }); }
+        }
+        window.__RESULT__ = results;
+        document.getElementById('log').textContent = JSON.stringify(results, null, 2);
+      })();
+    </script>
+  </body>
+</html>
