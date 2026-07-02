@@ -6,6 +6,26 @@ const errEl = document.getElementById('err');
 // Transparent background so exported PNG has no white box.
 const pad = new SignaturePad(canvas, { penColor: '#111', backgroundColor: 'rgba(0,0,0,0)' });
 
+// Match the canvas backing store to its displayed size so signature_pad's
+// pointer coordinates (CSS pixels) map exactly to where the ink is drawn.
+// SUPERSAMPLE keeps the exported PNG crisp when stamped larger onto a PDF.
+const SUPERSAMPLE = 2;
+function resizeCanvas() {
+  const cssW = canvas.clientWidth;
+  const cssH = canvas.clientHeight;
+  if (!cssW || !cssH) return; // not laid out yet
+  const scale = Math.max(window.devicePixelRatio || 1, 1) * SUPERSAMPLE;
+  const data = pad.toData(); // preserve any existing strokes across a resize
+  canvas.width = Math.round(cssW * scale);
+  canvas.height = Math.round(cssH * scale);
+  // Setting width/height resets the context transform; scale so 1 unit == 1 CSS px.
+  canvas.getContext('2d').scale(scale, scale);
+  pad.clear();
+  if (data && data.length) pad.fromData(data);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
 document.getElementById('clear').addEventListener('click', () => {
   pad.clear();
   errEl.textContent = '';
