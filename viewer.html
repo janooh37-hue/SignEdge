@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"><link rel="stylesheet" href="src/ui.css"></head>
+  <body>
+    <div class="viewer">
+      <div class="sidebar">
+        <h1>Signatures</h1>
+        <p class="pad-hint">Click one, then click on the page to place it.</p>
+        <div id="sigList"></div>
+      </div>
+      <div style="display:flex; flex-direction:column; min-width:0;">
+        <div class="toolbar">
+          <input id="file" type="file" accept="application/pdf" />
+          <button id="download" class="primary" disabled>Download signed PDF</button>
+          <span id="err" class="viewer-err" style="padding:0"></span>
+        </div>
+        <div id="stage" class="stage"></div>
+      </div>
+    </div>
+    <!-- pdf-lib as UMD global (window.PDFLib) for the export step -->
+    <script src="lib/pdf-lib.min.js"></script>
+    <script type="module" src="src/viewer.js"></script>
+  </body>
+</html>
