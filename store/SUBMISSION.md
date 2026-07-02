@@ -4,9 +4,10 @@
 - A Microsoft account.
 - Register as an Edge extension developer (free) at the Microsoft Partner Center:
   https://partner.microsoft.com/dashboard/microsoftedge/  → "Register".
-- Host the privacy policy somewhere public and copy its URL. Easiest options:
-  - Create a public GitHub Gist with the contents of `store/privacy-policy.md`, or
-  - Enable GitHub Pages on your repo and link the rendered file.
+- Privacy policy — already hosted via GitHub Pages from this repo:
+  **https://janooh37-hue.github.io/SignEdge/privacy-policy.html**
+  (Source: `privacy-policy.html` at the repo root; the source repo is
+  https://github.com/janooh37-hue/SignEdge)
 
 ## 1. Build the upload package
 From the project root, run:
@@ -22,7 +23,7 @@ This creates `dist/signedge-<version>.zip` containing only the files the store n
    description, category, search terms). Upload at least one screenshot
    (1280×800 recommended) — see `store/TEST-CHECKLIST.md` step for capturing one.
 4. **Privacy:**
-   - Privacy policy URL: paste the public URL from step 0.
+   - Privacy policy URL: `https://janooh37-hue.github.io/SignEdge/privacy-policy.html`
    - Data collection: declare **no data collected**.
    - Permission justification for `storage`: "Stores the user's signatures locally on
      their device. No data is transmitted."
