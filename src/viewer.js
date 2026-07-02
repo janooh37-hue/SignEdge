@@ -9,7 +9,7 @@ const stage = document.getElementById('stage');
 const errEl = document.getElementById('err');
 const downloadBtn = document.getElementById('download');
 
-const state = { pdfBytes: null, pages: [], placements: [], selectedSigId: null };
+const state = { pdfBytes: null, pages: [], placements: [], selectedSigId: null, sigById: new Map() };
 window.SignEdgeViewer = state;
 
 const FIT_WIDTH = 820; // target on-screen page width in CSS px
@@ -221,9 +221,10 @@ function attachPagePlacement() {
 
 // Rotate a PNG data URL clockwise by 0/90/180/270 degrees on a canvas.
 function rotateDataUrl(dataUrl, deg) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     if (deg % 360 === 0) { resolve(dataUrl); return; }
     const img = new Image();
+    img.onerror = () => reject(new Error('Could not process the signature image for rotation.'));
     img.onload = () => {
       const c = document.createElement('canvas');
       const swap = deg % 180 !== 0;
