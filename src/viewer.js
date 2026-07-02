@@ -108,6 +108,7 @@ renderSidebar();
 function sigAspect(sigId) {
   return new Promise((resolve) => {
     const sig = state.sigById.get(sigId);
+    if (!sig) { resolve(3); return; }
     const img = new Image();
     img.onload = () => resolve(img.naturalWidth / img.naturalHeight || 3);
     img.onerror = () => resolve(3);
@@ -174,8 +175,8 @@ function makePlacement(sigId, pageIndex, leftPx, topPx, wPx, hPx) {
     const aspect = ow / oh;
     const W = pageDiv.clientWidth;
     function move(ev) {
-      let nw = Math.max(24, ow + (ev.clientX - startX));
-      nw = Math.min(nw, W - el.offsetLeft);
+      let nw = ow + (ev.clientX - startX);
+      nw = Math.max(24, Math.min(nw, W - el.offsetLeft, (pageDiv.clientHeight - el.offsetTop) * aspect));
       el.style.width = nw + 'px';
       el.style.height = (nw / aspect) + 'px';
     }
