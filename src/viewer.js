@@ -1,5 +1,6 @@
 import * as pdfjsLib from '../lib/pdf.min.mjs';
 import { listSignatures } from './storage.js';
+import { fractionsToViewportRect, pdfRectFromCorners, preRotateDegreesCW } from './coords.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   new URL('../lib/pdf.worker.min.mjs', import.meta.url).toString();
@@ -217,5 +218,75 @@ function attachPagePlacement() {
     });
   }
 }
+
+// Rotate a PNG data URL clockwise by 0/90/180/270 degrees on a canvas.
+function rotateDataUrl(dataUrl, deg) {
+  return new Promise((resolve) => {
+    if (deg % 360 === 0) { resolve(dataUrl); return; }
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      const swap = deg % 180 !== 0;
+      c.width = swap ? img.naturalHeight : img.naturalWidth;
+      c.height = swap ? img.naturalWidth : img.naturalHeight;
+      const ctx = c.getContext('2d');
+      ctx.translate(c.width / 2, c.height / 2);
+      ctx.rotate((deg * Math.PI) / 180);
+      ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+      resolve(c.toDataURL('image/png'));
+    };
+    img.src = dataUrl;
+  });
+}
+
+function dataUrlToBytes(dataUrl) {
+  const b64 = dataUrl.split(',')[1];
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+async function downloadSigned() {
+  showError('');
+  if (!state.pdfBytes) return;
+  try {
+    const { PDFDocument } = window.PDFLib;
+    const pdfDoc = await PDFDocument.load(state.pdfBytes);
+
+    for (const p of state.placements) {
+      const pageView = state.pages[p.pageIndex];
+      const viewport = pageView.viewport;
+      const pdfPage = pdfDoc.getPage(p.pageIndex);
+      const rotation = pdfPage.getRotation().angle;
+
+      // display-space rect (viewport px) -> two PDF-space corners
+      const r = fractionsToViewportRect(p, viewport.width, viewport.height);
+      const topLeftPdf = viewport.convertToPdfPoint(r.x, r.y);
+      const bottomRightPdf = viewport.convertToPdfPoint(r.x + r.w, r.y + r.h);
+      const rect = pdfRectFromCorners(topLeftPdf, bottomRightPdf);
+
+      // make the stamp upright given the page's display rotation
+      const sig = state.sigById.get(p.sigId);
+      const rotated = await rotateDataUrl(sig.dataUrl, preRotateDegreesCW(rotation));
+      const png = await pdfDoc.embedPng(dataUrlToBytes(rotated));
+
+      pdfPage.drawImage(png, { x: rect.x, y: rect.y, width: rect.width, height: rect.height });
+    }
+
+    const out = await pdfDoc.save();
+    const blob = new Blob([out], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'signed.pdf';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch (e) {
+    showError('Could not create the signed PDF: ' + (e && e.message ? e.message : 'unknown error'));
+  }
+}
+
+downloadBtn.addEventListener('click', downloadSigned);
 
 export { state };
