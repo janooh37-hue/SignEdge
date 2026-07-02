@@ -493,7 +493,7 @@ document.getElementById('clear').addEventListener('click', () => {
 });
 
 document.getElementById('save').addEventListener('click', async () => {
-  errEl.textContent = '';
+  errEl.textContent = ''; errEl.style.color = '#c00';
   if (pad.isEmpty()) { errEl.textContent = 'Please draw a signature first.'; return; }
   const name = (document.getElementById('name').value || '').trim() || 'Signature';
 
@@ -510,8 +510,14 @@ document.getElementById('save').addEventListener('click', async () => {
 
   try {
     await addSignature(name, dataUrl);
-    window.close();
+    // Do NOT window.close(): closing a chrome.tabs.create tab from script is
+    // unreliable. Show a success state and reset for another signature.
+    pad.clear();
+    document.getElementById('name').value = '';
+    errEl.style.color = '#0a7a0a';
+    errEl.textContent = 'Saved! Draw another, or just close this tab.';
   } catch (e) {
+    errEl.style.color = '#c00';
     errEl.textContent = 'Could not save: ' + (e && e.message ? e.message : 'unknown error');
   }
 });
@@ -521,10 +527,10 @@ document.getElementById('save').addEventListener('click', async () => {
 
 1. `npm run vendor` (ensures `lib/signature_pad.umd.min.js` exists), then reload the unpacked extension in `edge://extensions`.
 2. Temporarily open the pad directly: in a new tab visit `chrome-extension://<your-extension-id>/pad.html` (copy the ID from the extension card).
-3. Draw something, leave the name blank, click **Save** → the tab closes.
-4. Reopen `pad.html`, draw, type a name "Full", click **Save** → closes.
-5. Click **Save** with an empty canvas → shows "Please draw a signature first." and does not close.
-Expected: saves succeed (verified visually in Task 5's popup grid), empty-save is blocked.
+3. Draw something, type a name "Full", click **Save** → shows the green "Saved!" message and the pad clears.
+4. Draw again and Save a second signature → another green "Saved!"; both will appear in Task 5's popup grid.
+5. Click **Save** with an empty canvas → shows red "Please draw a signature first." and does not save.
+Expected: saves succeed (verified visually in Task 5's popup grid), empty-save is blocked, tab stays open with a clear success message.
 
 - [ ] **Step 5: Commit**
 
@@ -556,6 +562,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 .card .nm { font-size: 12px; margin: 4px 0; word-break: break-word; }
 .card .row { display: flex; gap: 4px; justify-content: center; }
 .card .row button { padding: 3px 7px; font-size: 12px; }
+.card .rename-input { width: 100%; font: inherit; padding: 3px; box-sizing: border-box; margin: 4px 0; }
 .empty { color: #666; font-size: 13px; }
 .actions { display: flex; gap: 8px; }
 .actions button { flex: 1; }
@@ -595,34 +602,63 @@ function openPage(path) {
   window.close();
 }
 
+function makeCard(sig) {
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const img = document.createElement('img');
+  img.src = sig.dataUrl; img.alt = sig.name;
+
+  const nm = document.createElement('div');
+  nm.className = 'nm'; nm.textContent = sig.name;
+
+  const row = document.createElement('div');
+  row.className = 'row';
+  const ren = document.createElement('button'); ren.textContent = 'Rename';
+  const del = document.createElement('button'); del.textContent = 'Delete';
+  row.append(ren, del);
+
+  // Inline rename (native prompt() is unreliable in popups).
+  ren.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'text'; input.value = sig.name; input.className = 'rename-input';
+    const ok = document.createElement('button'); ok.textContent = 'Save'; ok.className = 'primary';
+    const cancel = document.createElement('button'); cancel.textContent = 'Cancel';
+    nm.replaceWith(input);
+    row.replaceChildren(ok, cancel);
+    input.focus(); input.select();
+    const commit = async () => {
+      const v = input.value.trim();
+      if (v) await renameSignature(sig.id, v);
+      render();
+    };
+    ok.addEventListener('click', commit);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') commit(); });
+    cancel.addEventListener('click', render);
+  });
+
+  // Two-step delete (native confirm() is unreliable in popups).
+  let armed = false, timer;
+  del.addEventListener('click', async () => {
+    if (!armed) {
+      armed = true; del.textContent = 'Confirm?';
+      timer = setTimeout(() => { armed = false; del.textContent = 'Delete'; }, 2500);
+      return;
+    }
+    clearTimeout(timer);
+    await deleteSignature(sig.id);
+    render();
+  });
+
+  card.append(img, nm, row);
+  return card;
+}
+
 async function render() {
   const sigs = await listSignatures();
   grid.innerHTML = '';
   emptyEl.hidden = sigs.length > 0;
-  for (const sig of sigs) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    const img = document.createElement('img');
-    img.src = sig.dataUrl; img.alt = sig.name;
-    const nm = document.createElement('div');
-    nm.className = 'nm'; nm.textContent = sig.name;
-    const row = document.createElement('div');
-    row.className = 'row';
-    const ren = document.createElement('button');
-    ren.textContent = 'Rename';
-    ren.addEventListener('click', async () => {
-      const name = prompt('New name', sig.name);
-      if (name && name.trim()) { await renameSignature(sig.id, name.trim()); render(); }
-    });
-    const del = document.createElement('button');
-    del.textContent = 'Delete';
-    del.addEventListener('click', async () => {
-      if (confirm(`Delete "${sig.name}"?`)) { await deleteSignature(sig.id); render(); }
-    });
-    row.append(ren, del);
-    card.append(img, nm, row);
-    grid.append(card);
-  }
+  for (const sig of sigs) grid.append(makeCard(sig));
 }
 
 document.getElementById('new').addEventListener('click', () => openPage('pad.html'));
@@ -635,8 +671,8 @@ render();
 1. Reload the unpacked extension.
 2. Open the popup → if you saved signatures in Task 4 they appear as cards (checkerboard behind them confirms transparency). If none, the "No signatures yet" hint shows.
 3. Click **New signature** → `pad.html` opens in a tab; draw + save; reopen popup → the new card appears.
-4. **Rename** a card → enter a new name → grid updates.
-5. **Delete** a card → confirm → it disappears.
+4. **Rename** a card → the name becomes an inline text field with Save/Cancel; edit and press Enter or Save → grid updates; Cancel discards.
+5. **Delete** a card → the button changes to "Confirm?"; click again within 2.5s → it disappears. Wait >2.5s → it reverts to "Delete" (no deletion).
 6. Click **Open a PDF to sign** → a tab opens at `viewer.html` (currently blank/placeholder until Task 6). No errors in the popup.
 Expected: all steps behave as described.
 
