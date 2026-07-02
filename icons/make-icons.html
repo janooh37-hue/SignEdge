@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>SignEdge icons</title></head>
+  <body style="font-family:system-ui;padding:20px">
+    <h1>SignEdge icon generator</h1>
+    <p>This page downloads icon16/32/48/128.png. Save them into the <code>/icons</code> folder, replacing the placeholders.</p>
+    <button id="go" style="font-size:16px;padding:8px 14px">Generate &amp; download</button>
+    <div id="preview" style="margin-top:16px"></div>
+    <script>
+      function draw(size) {
+        const c = document.createElement('canvas');
+        c.width = c.height = size;
+        const x = c.getContext('2d');
+        // rounded blue tile
+        const r = size * 0.22;
+        x.fillStyle = '#0a6cff';
+        x.beginPath();
+        x.moveTo(r, 0); x.arcTo(size, 0, size, size, r); x.arcTo(size, size, 0, size, r);
+        x.arcTo(0, size, 0, 0, r); x.arcTo(0, 0, size, 0, r); x.closePath(); x.fill();
+        // white signature stroke
+        x.strokeStyle = '#fff';
+        x.lineWidth = Math.max(2, size * 0.09);
+        x.lineCap = 'round'; x.lineJoin = 'round';
+        x.beginPath();
+        x.moveTo(size * 0.20, size * 0.66);
+        x.bezierCurveTo(size * 0.36, size * 0.30, size * 0.46, size * 0.86, size * 0.60, size * 0.50);
+        x.bezierCurveTo(size * 0.68, size * 0.30, size * 0.74, size * 0.62, size * 0.82, size * 0.52);
+        x.stroke();
+        return c;
+      }
+      function download(canvas, name) {
+        canvas.toBlob((b) => {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(b);
+          a.download = name; a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+        }, 'image/png');
+      }
+      document.getElementById('go').addEventListener('click', () => {
+        const preview = document.getElementById('preview');
+        preview.innerHTML = '';
+        for (const s of [16, 32, 48, 128]) {
+          const c = draw(s);
+          preview.appendChild(c);
+          download(c, `icon${s}.png`);
+        }
+      });
+    </script>
+  </body>
+</html>
