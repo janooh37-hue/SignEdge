@@ -2,6 +2,7 @@ import { listSignatures, deleteSignature, renameSignature } from './storage.js';
 
 const grid = document.getElementById('grid');
 const emptyEl = document.getElementById('empty');
+const pendingTimers = new Set();
 
 function openPage(path) {
   chrome.tabs.create({ url: chrome.runtime.getURL(path) });
@@ -48,10 +49,12 @@ function makeCard(sig) {
   del.addEventListener('click', async () => {
     if (!armed) {
       armed = true; del.textContent = 'Confirm?';
-      timer = setTimeout(() => { armed = false; del.textContent = 'Delete'; }, 2500);
+      timer = setTimeout(() => { armed = false; del.textContent = 'Delete'; pendingTimers.delete(timer); }, 2500);
+      pendingTimers.add(timer);
       return;
     }
     clearTimeout(timer);
+    pendingTimers.delete(timer);
     await deleteSignature(sig.id);
     render();
   });
@@ -61,6 +64,8 @@ function makeCard(sig) {
 }
 
 async function render() {
+  for (const t of pendingTimers) clearTimeout(t);
+  pendingTimers.clear();
   const sigs = await listSignatures();
   grid.innerHTML = '';
   emptyEl.hidden = sigs.length > 0;
