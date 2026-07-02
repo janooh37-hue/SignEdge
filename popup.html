@@ -4,8 +4,12 @@
   <body>
     <div class="popup">
       <h1>SignEdge</h1>
-      <p id="status">Loaded.</p>
-      <button id="ping" class="primary">It works</button>
+      <div id="grid" class="grid"></div>
+      <p id="empty" class="empty" hidden>No signatures yet. Create your first one.</p>
+      <div class="actions">
+        <button id="new">New signature</button>
+        <button id="open" class="primary">Open a PDF to sign</button>
+      </div>
     </div>
     <script type="module" src="src/popup.js"></script>
   </body>
